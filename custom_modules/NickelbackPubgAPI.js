@@ -1,15 +1,18 @@
-let https = require('https');
+const axios = require('axios');
 
 module.exports = class NickelbackPubgAPI{
+  urlSearchPlayerAPI = "https://api.pubg.com/shards/kakao/players";
+  urlSeasonListAPI = "https://api.pubg.com/shards/kakao/seasons";
+  urlSeasonRankAPI = "https://api.pubg.com/shards/kakao/players/{accountId}/seasons/{seasonId}";
+  gameType = "squad";
+  seasonList = [];//시즌정보 key List를 가진다.
+  currentSeasonKey = "";
+
   constructor(){
-    this.pubgAPIUrl = "https://api.pubg.com/shards/steam/players";
-    this.pubgAPIOptions = {
-        //url: 'https://api.pubg.com/shards/steam/players',
-        hostname: 'api.pubg.com',
-        port: 443,
-        path : '/shards/kakao/players',
-        method : 'GET',
-        headers:{
+    let this_ = this;    
+    //공통 api호출 변수 설정 (api키)
+    this.pubgAPIHeader = {
+        headers : {
           Authorization : "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmYmQwNjIzMC1lYWU5LTAxM2EtMDI0MS0zZmMxNDI3YjYzYWUiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNjU4MzgzOTMyLCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImZyaWVuZHN0YXRpc3RpIn0.6UFJrWkfyPWblw_k_9AXNQl3pYe7bdLVEQxU3Mp2tfE",
           Accept : "application/vnd.api+json"
         }
@@ -17,11 +20,70 @@ module.exports = class NickelbackPubgAPI{
   }
 
   /**
+   * PubgAPI를 사용하기위한 공통함수
+   * @param {string} url 
+   * @param {JsonObject} params 
+   * @param {function} callback 
+   */
+   getPromisePubgAPI(url,params){
+    let this_ = this;
+    if(params!=null){
+      let strParams = "";
+      for(let paramKey in params){
+        strParams += (strParams==""?"?":"") + paramKey +"=" + params[paramKey];
+      }
+      url += strParams; 
+    }    
+    return new Promise(function(resolve, reject){
+                  axios.get(url, this_.pubgAPIHeader).then((_responseJson)=>{
+                    resolve(_responseJson)
+                  }).catch(function(error){
+                    console.error(error);
+                    console.error("==============error==========");
+                    reject(error);    
+                  });
+              }).catch(function(error) {
+                reject(error)
+                console.error("==============error==========");                
+              });
+  }
+
+  async setSeasonList(){
+    //시즌정보를 불러온다.
+    let this_ = this;
+    await this.getPromisePubgAPI(this.urlSeasonListAPI, {}).then(function(responseJson){
+      /*
+        //예시
+        {
+          "type": "season",
+          "id": "division.bro.official.pc-2018-15",
+          "attributes": {
+            "isOffseason": false,
+            "isCurrentSeason": true
+          }
+        },      
+      */
+      let seasonListData = responseJson.data.data;
+      if(seasonListData!=null && Array.isArray(seasonListData)){
+        seasonListData.forEach((seasonInfo, idx) =>{
+          let seasonId = seasonInfo.id;
+          this_.seasonList.push(seasonId);
+          //isCurrentSeason 현재 시즌이 true인 값을 가져온다.
+          if(seasonInfo.attributes.isCurrentSeason==true){
+            console.log("current season : "+seasonId);
+            this_.currentSeasonKey = seasonId;
+          }
+        });
+      }
+    });
+  }
+
+  /**
    * 
    * @param {JsonObject} resJson (API서버에서 응답받은 JSON) 
    * @returns string (에러메시지)
    */
-  getErrorMessage(resJson){
+   getErrorMessage(resJson){
     if(resJson.errors!=null){
       let errorMessage = "";
       if(Array.isArray(resJson.errors)){
@@ -35,47 +97,130 @@ module.exports = class NickelbackPubgAPI{
       return null;
     }
   }
-
+    
   /**
-   * 
-   * @param {Array} playerNames 
+   * 플레이어 시즌 정보를 가져온다.
+   * @param {string} playerNames
+   * @param {string} seasonKey
    * @returns 
    */
-  getPlayerInfo(playerNames){
-    let responseJson = {};
+   async getPlayerRankList(playerNames, seasonKey){
+    //시즌정보를 가져옴
+    await this.setSeasonList();
+
     let this_ = this;
-    
-    let url = this.pubgAPIUrl + "?filter[playerNames]=dators";
-    // let cloneOptions = Object.assign({}, this.pubgAPIOptions);//원본 훼손을 막기위해 option내용을 복사해서 사용한다.
-    // cloneOptions.form = {};
-    // cloneOptions.form["filter[playerNames]"] = playerNames.join(","); //플레이어 이름을 ,로 합쳐서 string으로 반환(array[a,b,c] = string[a,b,c])
-    // console.log("       paramOption : \n",cloneOptions);
-    console.log(url);
-    const req = https.get(url, this.pubgAPIOptions, function(res){
-      let resData = '';
-      res.on('data', function(chunk){
-          console.log("       1. reading....");
-          resData += chunk;
-      });
-      
-      res.on('end', function(){
-          console.log("       2. read end.");
-          responseJson = JSON.parse(resData);//string을 json형태로 파싱.....
-          console.log("       3. parsed json");
-          let errorMessage = this_.getErrorMessage(responseJson);
-          if(errorMessage!=null){
-            console.log("       error : "+errorMessage);
-            throw errorMessage;
-          }
+    let responseJson = {};
+    let params = {};
+    if(seasonKey==null)
+      seasonKey = this.currentSeasonKey;
+
+    params["filter[playerNames]"] = playerNames;//"dators,bleumer102,77cloud,gasip";
+
+    this.getPromisePubgAPI(this.urlSearchPlayerAPI, params).then(function(responseJson){
+      /*
+        //예시
+          {
+            "data": [
+              {
+                "type": "player",
+                "id": "account.51525c5501b54c6fa643c88d9cf48bf3",
+                "attributes": {
+                  "titleId": "pubg",
+                  "shardId": "kakao",
+                  "patchVersion": "",
+                  "name": "dators",
+                  "stats": null
+                },
+                "relationships": {
+      */ 
+      let userIdList = [];
+      let userList = responseJson.data.data;
+      if(userList!=null && Array.isArray(userList)){
+        userList.forEach((userInfo,idx)=>{
+          let userName = userInfo.attributes.name;
+          let userid = userInfo.id;
+          console.log(" userInfo ["+userName+"] : "+userid);
+          userIdList.push(userid);
+        });
+      }
+      //let promiseArray = [];
+      let userRankInfoArray = [];
+      console.log("\n 1. userIdList : \n",userIdList);
+      for(let i=0; i<userIdList.length; i++){
+        // let func = async => {
+        //   await this_.getPromisePlayerRank(userIdList[i], this_.currentSeasonKey, this_.gameType).then(function(responseJson){
+        //     userRankInfoArray.push(responseJson.data);
+        //   });
+        // }
+        // func();
+        promiseArray.push(this_.getPromisePlayerRank(userIdList[i], this_.currentSeasonKey, this_.gameType));
+      }
+      //console.log("userRankInfoArray",userRankInfoArray);
+      Promise.all(promiseArray).then(function(responseJsonArray){
+        for(let i=0; i<responseJsonArray.length; i++){
+          //let responseJson = Object.assign({},responseJsonArray[i]);
+          console.log(responseJsonArray[i]);
+        } 
       });
     });
-
-    req.on('error', error => {
-      throw error;
-      //console.error(error);
-    });
-    req.end();
-
-    return responseJson;
   }
+
+  getPromisePlayerRank(accountId, seasonId, gameType){
+    let response = {};
+    let params = {};
+    params["filter[gamepad]"] = false;
+    let url = this.urlSeasonRankAPI;
+    url = url.replace("{accountId}",accountId).replace("{seasonId}",seasonId);
+    console.log(url);
+    return this.getPromisePubgAPI(url, params);
+
+    this.callPubgAPI(url,params,function(responseJson){
+      /*
+      {
+        "data": {
+          "type": "playerSeason",
+          "attributes": {
+            "gameModeStats": {
+              "squad": {
+                "assists": 0,
+                "boosts": 21,
+                "dBNOs": 4,
+                "dailyKills": 5,
+                "dailyWins": 0,
+                "damageDealt": 809.17773,
+                "days": 2,
+                "headshotKills": 3,
+                "heals": 17,
+                "killPoints": 0,
+                "kills": 6,
+                "longestKill": 80.20094,
+                "longestTimeSurvived": 1799,
+                "losses": 5,
+                "maxKillStreaks": 1,
+                "mostSurvivalTime": 1799,
+                "rankPoints": 0,
+                "rankPointsTitle": "",
+                "revives": 2,
+                "rideDistance": 14439.109,
+                "roadKills": 0,
+                "roundMostKills": 3,
+                "roundsPlayed": 5,
+                "suicides": 1,
+                "swimDistance": 11.998796,
+                "teamKills": 0,
+                "timeSurvived": 6389,
+                "top10s": 2,
+                "vehicleDestroys": 0,
+                "walkDistance": 5103.3516,
+                "weaponsAcquired": 32,
+                "weeklyKills": 5,
+                "weeklyWins": 0,
+                "winPoints": 0,
+                "wins": 0
+              },      
+      */
+      let rankInfo = responseJson.data.attributes.gameNodeStats;
+      response = rankInfo[gameType];
+    });
+  }  
 }

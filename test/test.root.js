@@ -6,10 +6,7 @@ describe('TEST ROOT', () => {
     it('URL Call Test', () => {
         //console.log("test start");
         let testApi = new NickelbackPubgAPI();
-        let playerNames = new Array();
-        playerNames.push("datars");
-        playerNames.push("bleumer102");
-        let responseJson = testApi.getPlayerInfo(playerNames);
+        let responseJson = testApi.getPlayerRankList("dators,bleumer102,77cloud,gasip");
     });
     it('sample', () => {
       assert.equal([1, 2, 3].indexOf(2), 1);
