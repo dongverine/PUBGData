@@ -3,7 +3,7 @@ const axios = require('axios');
 module.exports = class NickelbackPubgAPI{
   urlSearchPlayerAPI = "https://api.pubg.com/shards/kakao/players";
   urlSeasonListAPI = "https://api.pubg.com/shards/kakao/seasons";
-  urlSeasonRankAPI = "https://api.pubg.com/shards/kakao/players/{accountId}/seasons/{seasonId}";
+  urlSeasonRankAPI = "https://api.pubg.com/shards/kakao/players/{accountId}/seasons/{seasonId}/ranked";
   gameType = "squad";
   seasonList = [];//시즌정보 key List를 가진다.
   currentSeasonKey = "";
@@ -30,7 +30,7 @@ module.exports = class NickelbackPubgAPI{
     if(params!=null){
       let strParams = "";
       for(let paramKey in params){
-        strParams += (strParams==""?"?":"") + paramKey +"=" + params[paramKey];
+        strParams += (strParams==""?"?":"&") + paramKey +"=" + params[paramKey];
       }
       url += strParams; 
     }    
@@ -38,13 +38,11 @@ module.exports = class NickelbackPubgAPI{
                   axios.get(url, this_.pubgAPIHeader).then((_responseJson)=>{
                     resolve(_responseJson)
                   }).catch(function(error){
-                    console.error(error);
-                    console.error("==============error==========");
-                    reject(error);    
+                    let errorObject = {};
+                    errorObject.errorCode = error.response.status;
+                    errorObject.errorMessage = error.response.statusText;
+                    reject(errorObject);
                   });
-              }).catch(function(error) {
-                reject(error)
-                console.error("==============error==========");                
               });
   }
 
@@ -108,73 +106,87 @@ module.exports = class NickelbackPubgAPI{
     //시즌정보를 가져옴
     await this.setSeasonList();
 
+    let userInfoMap = {};
     let this_ = this;
     let responseJson = {};
-    let params = {};
     if(seasonKey==null)
       seasonKey = this.currentSeasonKey;
+    await this.getPromisePubgAPI(this.urlSearchPlayerAPI, {"filter[playerNames]":playerNames})
+      .then(async function(responseJson){
+        /*
+          //예시
+            {
+              "data": [
+                {
+                  "type": "player",
+                  "id": "account.51525c5501b54c6fa643c88d9cf48bf3",
+                  "attributes": {
+                    "titleId": "pubg",
+                    "shardId": "kakao",
+                    "patchVersion": "",
+                    "name": "dators",
+                    "stats": null
+                  },
+                  "relationships": {
+        */ 
+        let userList = responseJson.data.data;
+        if(userList!=null && Array.isArray(userList)){
+          userList.forEach((userInfo,idx)=>{
+            let userName = userInfo.attributes.name;
+            let userid = userInfo.id;
+            console.log(" userInfo ["+userName+"] : "+userid);
+            userInfoMap[userid] = {};
+            userInfoMap[userid].name = userName;
+          });
+        }
 
-    params["filter[playerNames]"] = playerNames;//"dators,bleumer102,77cloud,gasip";
+        //console.log("\n 1. userInfoMap : \n",userInfoMap);
+        for(let userid in userInfoMap){
+          try{
+            await this_.getPromisePlayerRank(userid, this_.currentSeasonKey, this_.gameType).then(function(responseUserRankJson){
+              /*
+                {
+                  type: 'rankedplayerstats',
+                  attributes: { 
+                    rankedGameModeStats: { 
+                      squad : {
+                        currentTier : {}
+                        currentRankPoint : 000
+                      }
+                    } 
+                  },              
+              */
+              let userRankInfo = responseUserRankJson.data.data.attributes.rankedGameModeStats;
+              //console.log("userRankInfo : ",userRankInfo);
+              if(userRankInfo.squad!=null && userRankInfo.squad.currentTier!=null){
+                userInfoMap[userid].currentTier = userRankInfo.squad.currentTier;
+                userInfoMap[userid].currentRankPoint = userRankInfo.squad.currentRankPoint;
+              }
+            }).catch(function(errorObject){
+              console.log(errorObject);
+              if(errorObject.errorCode==429){
 
-    this.getPromisePubgAPI(this.urlSearchPlayerAPI, params).then(function(responseJson){
-      /*
-        //예시
-          {
-            "data": [
-              {
-                "type": "player",
-                "id": "account.51525c5501b54c6fa643c88d9cf48bf3",
-                "attributes": {
-                  "titleId": "pubg",
-                  "shardId": "kakao",
-                  "patchVersion": "",
-                  "name": "dators",
-                  "stats": null
-                },
-                "relationships": {
-      */ 
-      let userIdList = [];
-      let userList = responseJson.data.data;
-      if(userList!=null && Array.isArray(userList)){
-        userList.forEach((userInfo,idx)=>{
-          let userName = userInfo.attributes.name;
-          let userid = userInfo.id;
-          console.log(" userInfo ["+userName+"] : "+userid);
-          userIdList.push(userid);
-        });
+              }
+            });
+          }catch(error){
+            console.log("await promise error2");
+          }
+        }
+        //console.log("userRankInfoArray",userInfoMap);
       }
-      //let promiseArray = [];
-      let userRankInfoArray = [];
-      console.log("\n 1. userIdList : \n",userIdList);
-      for(let i=0; i<userIdList.length; i++){
-        // let func = async => {
-        //   await this_.getPromisePlayerRank(userIdList[i], this_.currentSeasonKey, this_.gameType).then(function(responseJson){
-        //     userRankInfoArray.push(responseJson.data);
-        //   });
-        // }
-        // func();
-        promiseArray.push(this_.getPromisePlayerRank(userIdList[i], this_.currentSeasonKey, this_.gameType));
-      }
-      //console.log("userRankInfoArray",userRankInfoArray);
-      Promise.all(promiseArray).then(function(responseJsonArray){
-        for(let i=0; i<responseJsonArray.length; i++){
-          //let responseJson = Object.assign({},responseJsonArray[i]);
-          console.log(responseJsonArray[i]);
-        } 
-      });
+    ).catch(function(errorMessage){
+      console.log("errorMessage1 : "+errorMessage);
     });
+    console.log("return map : ",userInfoMap);
+    return userInfoMap;
   }
 
   getPromisePlayerRank(accountId, seasonId, gameType){
-    let response = {};
-    let params = {};
-    params["filter[gamepad]"] = false;
     let url = this.urlSeasonRankAPI;
     url = url.replace("{accountId}",accountId).replace("{seasonId}",seasonId);
-    console.log(url);
-    return this.getPromisePubgAPI(url, params);
+    return this.getPromisePubgAPI(url, {"filter[gamepad]":false});
 
-    this.callPubgAPI(url,params,function(responseJson){
+    //this.callPubgAPI(url,params,function(responseJson){
       /*
       {
         "data": {
@@ -219,8 +231,8 @@ module.exports = class NickelbackPubgAPI{
                 "wins": 0
               },      
       */
-      let rankInfo = responseJson.data.attributes.gameNodeStats;
-      response = rankInfo[gameType];
-    });
+    //  let rankInfo = responseJson.data.attributes.gameNodeStats;
+    //  response = rankInfo[gameType];
+    //});
   }  
 }
