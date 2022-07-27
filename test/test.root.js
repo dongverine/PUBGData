@@ -3,10 +3,11 @@ const NickelbackPubgAPI = require('../custom_modules/NickelbackPubgAPI.js')
 
 describe('TEST ROOT', () => {
   describe('PUBB API TEST', () => {
-    it('URL Call Test', () => {
+    //this.timeout(15000);
+    it('URL Call Test', async () => {
         //console.log("test start");
         let testApi = new NickelbackPubgAPI();
-        let responseJson = testApi.getPlayerRankList("dators,bleumer102,77cloud,gasip");
+        let responseJson = await testApi.getPlayerRankList("dators,bleumer102,77cloud,gasip");
         //let responseJson = testApi.getPlayerRankList("77cloud");
         console.log("test return");
     });

@@ -4,7 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "mocha test/test.root.js",
+    "test": "mocha test/test.root.js --timeout 15000",
     "start" : "node main.js"
   },
   "repository": {
