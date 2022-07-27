@@ -76,25 +76,25 @@ module.exports = class NickelbackPubgAPI{
     });
   }
 
-  /**
-   * 
-   * @param {JsonObject} resJson (API서버에서 응답받은 JSON) 
-   * @returns string (에러메시지)
-   */
-   getErrorMessage(resJson){
-    if(resJson.errors!=null){
-      let errorMessage = "";
-      if(Array.isArray(resJson.errors)){
-        errorMessage = resJson.errors[0].title;
-        if(resJson.errors[0].detail!=null){
-          errorMessage += " <" + resJson.errors[0].detail+">";
-        }
-      }
-      return errorMessage;
-    }else{
-      return null;
-    }
-  }
+  // /**
+  //  * 
+  //  * @param {JsonObject} resJson (API서버에서 응답받은 JSON) 
+  //  * @returns string (에러메시지)
+  //  */
+  //  getErrorMessage(resJson){
+  //   if(resJson.errors!=null){
+  //     let errorMessage = "";
+  //     if(Array.isArray(resJson.errors)){
+  //       errorMessage = resJson.errors[0].title;
+  //       if(resJson.errors[0].detail!=null){
+  //         errorMessage += " <" + resJson.errors[0].detail+">";
+  //       }
+  //     }
+  //     return errorMessage;
+  //   }else{
+  //     return null;
+  //   }
+  // }
     
   /**
    * 플레이어 시즌 정보를 가져온다.
@@ -105,10 +105,8 @@ module.exports = class NickelbackPubgAPI{
    async getPlayerRankList(playerNames, seasonKey){
     //시즌정보를 가져옴
     await this.setSeasonList();
-
     let userInfoMap = {};
     let this_ = this;
-    let responseJson = {};
     if(seasonKey==null)
       seasonKey = this.currentSeasonKey;
     await this.getPromisePubgAPI(this.urlSearchPlayerAPI, {"filter[playerNames]":playerNames})
@@ -164,75 +162,26 @@ module.exports = class NickelbackPubgAPI{
               }
             }).catch(function(errorObject){
               console.log(errorObject);
-              if(errorObject.errorCode==429){
-
+              if(errorObject.errorCode!=null){
+                let errorMessage = "["+errorObject.errorCode+"] " + errorObject.errorMessage;
+                userInfoMap[userid].errorMessage = errorMessage;
               }
             });
           }catch(error){
-            console.log("await promise error2");
+            console.log("await promise error");
           }
         }
-        //console.log("userRankInfoArray",userInfoMap);
       }
     ).catch(function(errorMessage){
       console.log("errorMessage1 : "+errorMessage);
     });
-    console.log("return map : ",userInfoMap);
+    console.log("getPlayerRankList returned : ",userInfoMap);
     return userInfoMap;
   }
 
-  getPromisePlayerRank(accountId, seasonId, gameType){
+  getPromisePlayerRank(accountId, seasonId){
     let url = this.urlSeasonRankAPI;
     url = url.replace("{accountId}",accountId).replace("{seasonId}",seasonId);
     return this.getPromisePubgAPI(url, {"filter[gamepad]":false});
-
-    //this.callPubgAPI(url,params,function(responseJson){
-      /*
-      {
-        "data": {
-          "type": "playerSeason",
-          "attributes": {
-            "gameModeStats": {
-              "squad": {
-                "assists": 0,
-                "boosts": 21,
-                "dBNOs": 4,
-                "dailyKills": 5,
-                "dailyWins": 0,
-                "damageDealt": 809.17773,
-                "days": 2,
-                "headshotKills": 3,
-                "heals": 17,
-                "killPoints": 0,
-                "kills": 6,
-                "longestKill": 80.20094,
-                "longestTimeSurvived": 1799,
-                "losses": 5,
-                "maxKillStreaks": 1,
-                "mostSurvivalTime": 1799,
-                "rankPoints": 0,
-                "rankPointsTitle": "",
-                "revives": 2,
-                "rideDistance": 14439.109,
-                "roadKills": 0,
-                "roundMostKills": 3,
-                "roundsPlayed": 5,
-                "suicides": 1,
-                "swimDistance": 11.998796,
-                "teamKills": 0,
-                "timeSurvived": 6389,
-                "top10s": 2,
-                "vehicleDestroys": 0,
-                "walkDistance": 5103.3516,
-                "weaponsAcquired": 32,
-                "weeklyKills": 5,
-                "weeklyWins": 0,
-                "winPoints": 0,
-                "wins": 0
-              },      
-      */
-    //  let rankInfo = responseJson.data.attributes.gameNodeStats;
-    //  response = rankInfo[gameType];
-    //});
   }  
 }
