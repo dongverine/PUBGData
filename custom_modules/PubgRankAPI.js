@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-module.exports = class NickelbackPubgAPI{
+module.exports = class PubgRankAPI{
   urlSearchPlayerAPI = "https://api.pubg.com/shards/kakao/players";
   urlSeasonListAPI = "https://api.pubg.com/shards/kakao/seasons";
   urlSeasonRankAPI = "https://api.pubg.com/shards/kakao/players/{accountId}/seasons/{seasonId}/ranked";
@@ -8,12 +8,12 @@ module.exports = class NickelbackPubgAPI{
   seasonList = [];//시즌정보 key List를 가진다.
   currentSeasonKey = "";
 
-  constructor(){
+  constructor(apiKey){
     let this_ = this;    
     //공통 api호출 변수 설정 (api키)
     this.pubgAPIHeader = {
         headers : {
-          Authorization : "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmYmQwNjIzMC1lYWU5LTAxM2EtMDI0MS0zZmMxNDI3YjYzYWUiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNjU4MzgzOTMyLCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImZyaWVuZHN0YXRpc3RpIn0.6UFJrWkfyPWblw_k_9AXNQl3pYe7bdLVEQxU3Mp2tfE",
+          Authorization : "Bearer "+apiKey,
           Accept : "application/vnd.api+json"
         }
     };

@@ -1,18 +1,24 @@
 const assert = require('assert');
-const NickelbackPubgAPI = require('../custom_modules/NickelbackPubgAPI.js')
+const PubgRankAPI = require('../custom_modules/PubgRankAPI.js')
+const PropertiesReader = require('properties-reader');
 
 describe('TEST ROOT', () => {
   describe('PUBB API TEST', () => {
     //this.timeout(15000);
     it('URL Call Test', async () => {
-        let testApi = new NickelbackPubgAPI();
+        const properties = PropertiesReader('setting.properties');
+        const apiKey = properties.get("api.key");
+        console.log("api.key = ",apiKey);
+        let testApi = new PubgRankAPI(apiKey);
         let sortedRankUserList = [];
         let responseJson = {};
+
         try { 
             responseJson = await testApi.getPlayerRankList("dators,bleumer102,77cloud,gasip");
             console.log("getPlayerRankList returned : ",responseJson);
         }catch(error){
             console.error("getPlayerRankList error : ",error);
+            return;
         }
         //배열에 넣는다.
         for(let accountId in responseJson){
