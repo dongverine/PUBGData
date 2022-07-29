@@ -23,7 +23,6 @@ module.exports = class NickelbackPubgAPI{
    * PubgAPI를 사용하기위한 공통함수
    * @param {string} url 
    * @param {JsonObject} params 
-   * @param {function} callback 
    */
    getPromisePubgAPI(url,params){
     let this_ = this;
@@ -39,6 +38,7 @@ module.exports = class NickelbackPubgAPI{
                     resolve(_responseJson)
                   }).catch(function(error){
                     let errorObject = {};
+                    errorObject.url = url;
                     errorObject.errorCode = error.response.status;
                     errorObject.errorMessage = error.response.statusText;
                     reject(errorObject);
@@ -68,7 +68,6 @@ module.exports = class NickelbackPubgAPI{
           this_.seasonList.push(seasonId);
           //isCurrentSeason 현재 시즌이 true인 값을 가져온다.
           if(seasonInfo.attributes.isCurrentSeason==true){
-            console.log("current season : "+seasonId);
             this_.currentSeasonKey = seasonId;
           }
         });
@@ -103,12 +102,18 @@ module.exports = class NickelbackPubgAPI{
    * @returns 
    */
    async getPlayerRankList(playerNames, seasonKey){
-    //시즌정보를 가져옴
-    await this.setSeasonList();
     let userInfoMap = {};
     let this_ = this;
-    if(seasonKey==null)
+    if(seasonKey==null){
+      //시즌정보를 가져옴
+      if(this.currentSeasonKey==""){
+        console.log("call season api ");    
+        await this.setSeasonList();
+      }
+      console.log("current season : "+this.currentSeasonKey);          
       seasonKey = this.currentSeasonKey;
+    }
+    //유져명으로 유져 아이디 정보를 가져온다.
     await this.getPromisePubgAPI(this.urlSearchPlayerAPI, {"filter[playerNames]":playerNames})
       .then(async function(responseJson){
         /*
@@ -141,41 +146,42 @@ module.exports = class NickelbackPubgAPI{
         //console.log("\n 1. userInfoMap : \n",userInfoMap);
         for(let userid in userInfoMap){
           try{
-            await this_.getPromisePlayerRank(userid, this_.currentSeasonKey, this_.gameType).then(function(responseUserRankJson){
-              /*
-                {
-                  type: 'rankedplayerstats',
-                  attributes: { 
-                    rankedGameModeStats: { 
-                      squad : {
-                        currentTier : {}
-                        currentRankPoint : 000
-                      }
-                    } 
-                  },              
-              */
-              let userRankInfo = responseUserRankJson.data.data.attributes.rankedGameModeStats;
-              //console.log("userRankInfo : ",userRankInfo);
-              if(userRankInfo.squad!=null && userRankInfo.squad.currentTier!=null){
-                userInfoMap[userid].currentTier = userRankInfo.squad.currentTier;
-                userInfoMap[userid].currentRankPoint = userRankInfo.squad.currentRankPoint;
-              }
-            }).catch(function(errorObject){
-              console.log(errorObject);
-              if(errorObject.errorCode!=null){
-                let errorMessage = "["+errorObject.errorCode+"] " + errorObject.errorMessage;
-                userInfoMap[userid].errorMessage = errorMessage;
-              }
-            });
+            //유저아이디 , 시즌키, 게임타입 정보로 현재시즌 랭크정보를 가져온다.
+            await this_.getPromisePlayerRank(userid, this_.currentSeasonKey, this_.gameType)
+              .then(function(responseUserRankJson){
+                /*
+                  {
+                    type: 'rankedplayerstats',
+                    attributes: { 
+                      rankedGameModeStats: { 
+                        squad : {
+                          currentTier : {}
+                          currentRankPoint : 000
+                        }
+                      } 
+                    },              
+                */
+                let userRankInfo = responseUserRankJson.data.data.attributes.rankedGameModeStats;
+                //console.log("userRankInfo : ",userRankInfo);
+                if(userRankInfo.squad!=null && userRankInfo.squad.currentTier!=null){
+                  userInfoMap[userid].currentTier = userRankInfo.squad.currentTier;
+                  userInfoMap[userid].currentRankPoint = userRankInfo.squad.currentRankPoint;
+                }
+              }).catch(function(errorObject){
+                console.log(errorObject);
+                if(errorObject.errorCode!=null){
+                  let errorMessage = "["+errorObject.errorCode+"] " + errorObject.errorMessage;
+                  userInfoMap[userid].errorMessage = errorMessage;
+                }
+              });
           }catch(error){
             console.log("await promise error");
           }
         }
       }
     ).catch(function(errorMessage){
-      console.log("errorMessage1 : "+errorMessage);
+      console.log("errorMessage : "+errorMessage);
     });
-    console.log("getPlayerRankList returned : ",userInfoMap);
     return userInfoMap;
   }
 
