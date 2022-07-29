@@ -7,16 +7,10 @@ module.exports = class PubgRankAPI{
   gameType = "squad";
   seasonList = [];//시즌정보 key List를 가진다.
   currentSeasonKey = "";
-
+  currentKeySeq = 0;
+  apiKeyList = [];
   constructor(apiKey){
-    let this_ = this;    
-    //공통 api호출 변수 설정 (api키)
-    this.pubgAPIHeader = {
-        headers : {
-          Authorization : "Bearer "+apiKey,
-          Accept : "application/vnd.api+json"
-        }
-    };
+    this.apiKeyList = apiKey.split(",");
   }
 
   /**
@@ -25,7 +19,18 @@ module.exports = class PubgRankAPI{
    * @param {JsonObject} params 
    */
    getPromisePubgAPI(url,params){
-    let this_ = this;
+    if(this.currentKeySeq >= this.apiKeyList.length){
+      this.currentKeySeq = 0;
+    }
+    let pubgAPIHeader ={
+      headers : {
+        Authorization : "Bearer "+ this.apiKeyList[this.currentKeySeq],
+        Accept : "application/vnd.api+json"
+      }
+    };    
+
+    this.currentKeySeq++;
+
     if(params!=null){
       let strParams = "";
       for(let paramKey in params){
@@ -34,7 +39,7 @@ module.exports = class PubgRankAPI{
       url += strParams; 
     }    
     return new Promise(function(resolve, reject){
-                  axios.get(url, this_.pubgAPIHeader).then((_responseJson)=>{
+                  axios.get(url, pubgAPIHeader).then((_responseJson)=>{
                     resolve(_responseJson)
                   }).catch(function(error){
                     let errorObject = {};
