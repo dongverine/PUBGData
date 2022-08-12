@@ -28,10 +28,10 @@ describe('TEST ROOT', () => {
         //점수 순서대로 배열 sort
         sortedRankUserList.sort(function(user1, user2){
             console.log("> sorting :",user1.name+"["+user1.currentRankPoint+"]", user2.name+"["+user2.currentRankPoint+"]");
-            if(user1.errorMessage!=null){
+            if(user1.errorMessage!=null || user1.currentRankPoint==null){
                 return 1;
             }
-            if(user2.errorMessage!=null){
+            if(user2.errorMessage!=null || user2.currentRankPoint==null){
                 return -1;
             }                    
             if(user1.currentRankPoint == user2.currentRankPoint){
@@ -56,7 +56,9 @@ describe('TEST ROOT', () => {
 
         sortedRankUserList.forEach((userInfo, idx)=>{
             if(userInfo.errorMessage==null){
-                templateUserInfo += `\n[ ${userInfo.currentRankPoint} ] ${userInfo.name} ${userInfo.currentTier.tier} ${userInfo.currentTier.subTier}`;
+                var tier = userInfo.currentTier==null?"":userInfo.currentTier.tier;
+                var subTier = userInfo.currentTier==null?"":userInfo.currentTier.subTier;                
+                templateUserInfo += `\n[ ${userInfo.currentRankPoint} ] ${userInfo.name} ${tier} ${subTier}`;
             }else{
                 templateUserInfo += `\n > Error ${userInfo.errorMessage} ${userInfo.name} }`;                        
             }
